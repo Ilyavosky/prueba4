@@ -1,0 +1,86 @@
+services:
+  # ============================================
+  # Servicio 1: Base de datos PostgreSQL
+  # ============================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: glamstock-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./db/02_index.sql:/docker-entrypoint-initdb.d/02_index.sql
+      - ./db/03_seed.sql:/docker-scripts/03_seed.sql
+      - ./db/04_views.sql:/docker-scripts/04_views.sql
+      - ./db/init-seed.sh:/docker-entrypoint-initdb.d/03_init-seed.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - glamstock-network
+
+  # ============================================
+  # Servicio 2: Backend (API)
+  # ============================================
+  backend:
+    build:
+      context: ../glamstock-backend
+      dockerfile: Dockerfile
+    container_name: glamstock-backend
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      FRONTEND_URL: http://localhost:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - glamstock-network
+
+  # ============================================
+  # Servicio 3: Frontend (Next.js)
+  # ============================================
+  frontend:
+    build:
+      context: ../glamstock-frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:4000/api
+    container_name: glamstock-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+    depends_on:
+      - backend
+    networks:
+      - glamstock-network
+
+# ============================================
+# Volúmenes
+# ============================================
+volumes:
+  postgres_data:
+    driver: local
+
+# ============================================
+# Redes
+# ============================================
+networks:
+  glamstock-network:
+    driver: bridge
