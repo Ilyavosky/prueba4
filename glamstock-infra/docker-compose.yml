@@ -35,21 +35,11 @@ services:
     build:
       context: ../glamstock-backend
       dockerfile: Dockerfile
+      args:
+        DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+        JWT_SECRET: ${JWT_SECRET}
+        FRONTEND_URL: http://localhost:3000
     container_name: glamstock-backend
-    restart: unless-stopped
-    ports:
-      - "4000:4000"
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      JWT_SECRET: ${JWT_SECRET}
-      ADMIN_EMAIL: ${ADMIN_EMAIL}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-      FRONTEND_URL: http://localhost:3000
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - glamstock-network
 
   # ============================================
   # Servicio 3: Frontend (Next.js)
